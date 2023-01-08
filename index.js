@@ -7,6 +7,8 @@ const fs = require("fs");
 const ss = require("socket.io-stream");
 app.use(cors());
 
+app.enable('trust proxy')
+
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
@@ -14,6 +16,17 @@ const io = new Server(httpServer, {
 	cors: { origin: "*" },
 });
 
+function getAllRoomMembers(room, _nsp) {
+	var roomMembers = [];
+	var nsp = typeof _nsp !== "string" ? "/" : _nsp;
+
+	for (var member in io._nsps.get("/").adapter.rooms[room]) {
+		roomMembers.push(member);
+	}
+
+	return roomMembers;
+}
+	
 io.on("connection", (socket) => {
 	// console.log(socket.id);
 	socket.timeout(10000);
@@ -26,7 +39,21 @@ io.on("connection", (socket) => {
 
 	socket.on("join_figma_room", (data) => {
 		console.log(data.my_id + " joined " + data.room);
+		// console.log(getAllRoomMembers(data.room, "/"));
+		// console.log(Object.keys(io.of("/" + data.room).sockets));
 		socket.join(data.room);
+		let users = "";
+		io._nsps
+			.get("/")
+			.adapter.rooms.get(data.room)
+			.forEach((e) => {
+				if (e !== data.room) {
+					console.log(e);
+					users += "\n" + e;
+				}
+			});
+
+		socket.broadcast.to(data.room).emit("user_joined", users);
 	});
 
 	socket.on("join_room", (room) => {
